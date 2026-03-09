@@ -105,15 +105,21 @@ class MarkdownProcessor:
         self,
         input_path: str,
         output_path: str,
-        image_host: str = 'freeimage'
+        image_host: str = 'freeimage',
+        keep_mermaid: bool = False,
+        output_two_files: bool = False
     ) -> str:
         """
-        Process Markdown file, replace Mermaid with images
+        Process Markdown file, replace Mermaid with images or keep both
 
         Args:
             input_path: Input file path
             output_path: Output file path
             image_host: Image host name
+            keep_mermaid: If True, keep original Mermaid code and add image below
+            output_two_files: If True, output two separate files:
+                           - *_images_only.md (only images)
+                           - *_code_only.md (only mermaid code)
 
         Returns:
             Processed text
@@ -131,30 +137,97 @@ class MarkdownProcessor:
         print(f"\nFound {len(blocks)} Mermaid diagrams")
 
         if blocks:
-            # Replace from back to front (avoid position shift)
-            for i, (start, end, code) in reversed(list(enumerate(blocks))):
-                print(f"\nProcessing diagram {len(blocks)-i}/{len(blocks)}...")
+            # If output two files mode
+            if output_two_files:
+                # Create two versions
+                content_images_only = content
+                content_code_only = content
+                success_count = 0
+                skip_count = 0
 
-                # Convert and upload
-                url = self.uploader.convert_and_upload(
-                    code,
-                    image_host=image_host
-                )
+                # Process from back to front (avoid position shift)
+                for i, (start, end, code) in reversed(list(enumerate(blocks))):
+                    print(f"\nProcessing diagram {len(blocks)-i}/{len(blocks)}...")
 
-                if url:
-                    # Replace with image
-                    markdown_image = f"![Diagram {i+1}]({url})"
-                    content = content[:start] + markdown_image + content[end:]
-                    print(f"Replaced: {markdown_image}")
-                else:
-                    print(f"Skipped diagram {i+1}")
+                    # Convert and upload
+                    url = self.uploader.convert_and_upload(
+                        code,
+                        image_host=image_host
+                    )
 
-        # Save result
-        with open(output_path, 'w', encoding='utf-8') as f:
-            f.write(content)
+                    if url:
+                        # Version 1: Images only - replace Mermaid with image
+                        markdown_image = f"![Diagram {i+1}]({url})"
+                        content_images_only = content_images_only[:start] + markdown_image + content_images_only[end:]
+                        print(f"✅ Images only version: replaced with image {markdown_image}")
 
-        print(f"\nProcessing complete: {output_path}")
-        return content
+                        # Version 2: Code only - keep Mermaid code (do nothing, already there)
+                        print(f"✅ Code only version: kept Mermaid code")
+                        success_count += 1
+                    else:
+                        print(f"⚠️  Skipped diagram {i+1} (conversion/upload failed)")
+                        skip_count += 1
+
+                print(f"\n📊 Processing statistics: {success_count} successful, {skip_count} skipped")
+
+                # Generate output paths
+                base_path = output_path.rsplit('.', 1)[0] if '.' in output_path else output_path
+                images_only_path = f"{base_path}_images_only.md"
+                code_only_path = f"{base_path}_code_only.md"
+
+                # Save both files
+                with open(images_only_path, 'w', encoding='utf-8') as f:
+                    f.write(content_images_only)
+
+                with open(code_only_path, 'w', encoding='utf-8') as f:
+                    f.write(content_code_only)
+
+                print(f"\nProcessing complete!")
+                print(f"Images only file: {images_only_path}")
+                print(f"Code only file: {code_only_path}")
+
+                return content_images_only
+
+            # Normal single file mode
+            else:
+                # Replace from back to front (avoid position shift)
+                success_count = 0
+                skip_count = 0
+
+                for i, (start, end, code) in reversed(list(enumerate(blocks))):
+                    print(f"\nProcessing diagram {len(blocks)-i}/{len(blocks)}...")
+
+                    # Convert and upload
+                    url = self.uploader.convert_and_upload(
+                        code,
+                        image_host=image_host
+                    )
+
+                    if url:
+                        if keep_mermaid:
+                            # Keep original Mermaid code and add image below
+                            original_mermaid = content[start:end]
+                            markdown_image = f"\n\n![Diagram {i+1}]({url})"
+                            content = content[:end] + markdown_image + content[end:]
+                            print(f"✅ Added image below Mermaid: ![Diagram {i+1}]({url})")
+                        else:
+                            # Replace Mermaid with image
+                            markdown_image = f"![Diagram {i+1}]({url})"
+                            content = content[:start] + markdown_image + content[end:]
+                            print(f"✅ Replaced Mermaid with image: {markdown_image}")
+                        success_count += 1
+                    else:
+                        print(f"⚠️  Skipped diagram {i+1} (conversion/upload failed)")
+                        skip_count += 1
+
+                print(f"\n📊 Processing statistics: {success_count} successful, {skip_count} skipped")
+
+                # Save result
+                with open(output_path, 'w', encoding='utf-8') as f:
+                    f.write(content)
+
+                print(f"\nProcessing complete: {output_path}")
+                return content
 
 
 def main():
@@ -207,6 +280,16 @@ def main():
         action='store_true',
         help='Run test'
     )
+    parser.add_argument(
+        '--keep-mermaid',
+        action='store_true',
+        help='Keep original Mermaid code in output, add image below'
+    )
+    parser.add_argument(
+        '--output-two-files',
+        action='store_true',
+        help='Output two separate files: one with only images, one with only mermaid code'
+    )
 
     args = parser.parse_args()
 
@@ -232,7 +315,9 @@ graph LR
         processor.process_file(
             args.markdown,
             output_md,
-            image_host=args.image_host
+            image_host=args.image_host,
+            keep_mermaid=args.keep_mermaid,
+            output_two_files=args.output_two_files
         )
         return
 

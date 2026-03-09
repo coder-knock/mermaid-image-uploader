@@ -1,11 +1,14 @@
 {
   "name": "mermaid-image-uploader",
-  "version": "1.0.0",
-  "description": "Mermaid 图片生成与图床上传技能 - 专为公众号文章设计",
+  "version": "1.1.0",
+  "description": "Mermaid 图片生成与图床上传技能 - 支持三种处理模式，专为公众号文章、技术博客和自媒体内容创作设计",
   "main": "mermaid_uploader.py",
   "scripts": {
     "convert": "python mermaid_uploader.py",
-    "test": "python mermaid_uploader.py --test"
+    "test": "python mermaid_uploader.py --test",
+    "process": "python mermaid_uploader.py --markdown",
+    "process-keep": "python mermaid_uploader.py --markdown --keep-mermaid",
+    "process-split": "python mermaid_uploader.py --markdown --output-two-files"
   },
   "keywords": [
     "mermaid",
@@ -13,9 +16,13 @@
     "upload",
     "wechat",
     "公众号",
-    "diagram"
+    "diagram",
+    "markdown",
+    "blog",
+    "自媒体",
+    "技术写作"
   ],
-  "author": "AI Assistant",
+  "author": "OpenClaw AI",
   "license": "MIT",
   "repository": {
     "type": "git",
